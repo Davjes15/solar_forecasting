@@ -9,12 +9,6 @@ from typing import List, Tuple
 # 1. Regression Trees block
 # --------------------------------------------------------------
 
-import pandas as pd
-import numpy as np
-from typing import List, Tuple
-from sklearn.ensemble import BaggingRegressor
-from sklearn.tree import DecisionTreeRegressor
-
 def prepare_training_data(
     df: pd.DataFrame,
     feature_cols: List[str],
