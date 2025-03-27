@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from typing import List, Tuple
 
 # --------------------------------------------------------------
-# 1. Regression Trees block
+# 1. Regression Tree for Point Forecasting
 # --------------------------------------------------------------
 
 def prepare_training_data(
@@ -58,7 +58,7 @@ def train_regression_tree(
     if base_estimator is None:
         base_estimator = DecisionTreeRegressor()
     model = BaggingRegressor(
-        base_estimator=base_estimator,
+        estimator=base_estimator,
         n_estimators=n_estimators,
         random_state=random_state
     )
