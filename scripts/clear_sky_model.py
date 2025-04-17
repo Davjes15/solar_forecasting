@@ -7,7 +7,7 @@ from pvlib import location, solarposition, irradiance
 # 1. Clear Sky Model
 # ------------------------------
 
-def calculate_clear_sky_irradiance(df: pd.DataFrame, config: dict, eta_ref: float = 0.20) -> pd.DataFrame:
+def calculate_clear_sky_irradiance(df: pd.DataFrame, config: dict, eta_ref: float = 0.15) -> pd.DataFrame:
     """
     Computes clear-sky PV power output (Pcs) using plant parameters and atmospheric conditions.
 
@@ -71,6 +71,6 @@ def calculate_clear_sky_irradiance(df: pd.DataFrame, config: dict, eta_ref: floa
 
     # Step 4: Calculate clear-sky PV power (Pcs)
     total_area = config['n_modules'] * config['module_area']
-    df['Pcs'] = eta_ref * total_area * df['POA_irradiance']  # Pcs = η × A × I_tilt
-
+    df['Pcs_kW'] = (eta_ref * total_area * df['POA_irradiance']) / 1000  #  Pcs = η × A × I_tilt in kW
+  
     return df

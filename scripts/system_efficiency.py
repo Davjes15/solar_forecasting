@@ -6,12 +6,22 @@ from scipy.optimize import minimize_scalar
 # 2. PV system efficiency calibration module (κc and κt)
 # --------------------------------------------------------------
 
-def compute_daily_energy(df: pd.DataFrame) -> pd.DataFrame:
+def compute_daily_energy(df: pd.DataFrame,
+    pm_col: str = 'Pm_kW',
+    pcs_col: str = 'Pcs_kW',
+    cloud_col: str = 'cloudiness_index'
+) -> pd.DataFrame:
     """
     Aggregate hourly power measurements to daily total energy (kWh).
 
     Parameters:
         df (pd.DataFrame): Input DataFrame with 'timestamp' and 'Pm' columns.
+        'Pm' is the measured power output, 'Pcs' is the clear-sky power output,
+        and 'cloudiness' is the cloud index.
+        'timestamp' should be in datetime format.
+        'Pm' and 'Pcs' should be in kW o watts (W).
+        'cloudiness' should be a numeric value representing cloud index.
+        'temperature' should be in Celsius.
     
     Returns:
         pd.DataFrame: Daily energy production with 'date' and 'Pm' columns.
@@ -19,15 +29,23 @@ def compute_daily_energy(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df['date'] = df['timestamp'].dt.date
     daily = df.groupby('date').agg({
-        'Pm': 'sum',
-        'Pcs': 'sum',
-        'cloudiness': 'mean'
-    }).rename(columns={'Pm': 'Pm_day', 'Pcs': 'Pcs_day', 'cloudiness': 'cloudiness_day'})
-    daily['rel_energy'] = daily['Pm_day'] / daily['Pcs_day']
+        pm_col: 'sum',
+        pcs_col: 'sum',
+        cloud_col: 'mean'
+    }).rename(columns={
+        pm_col: 'Pm_day_kWh',
+        pcs_col: 'Pcs_day_kWh',
+        cloud_col: 'cloudiness_day_index'
+    })
+    daily['rel_energy'] = daily['Pm_day_kWh'] / daily['Pcs_day_kWh']
     return daily.reset_index()
 
 
-def detect_clear_sky_days(daily_df: pd.DataFrame, cloud_thresh: float = 4, rel_energy_thresh: float = 0.9) -> list:
+def detect_clear_sky_days(
+        daily_df: pd.DataFrame, 
+        cloud_thresh: float = 4, 
+        rel_energy_thresh: float = 0.9
+) -> list:
     """
     Identify days with low cloudiness and high relative measured energy.
 
@@ -39,7 +57,7 @@ def detect_clear_sky_days(daily_df: pd.DataFrame, cloud_thresh: float = 4, rel_e
     Returns:
         List of dates that meet clear-sky criteria
     """
-    is_clear = (daily_df['cloudiness_day'] <= cloud_thresh) & (daily_df['rel_energy'] >= rel_energy_thresh)
+    is_clear = (daily_df['cloudiness_day_index'] <= cloud_thresh) & (daily_df['rel_energy'] >= rel_energy_thresh)
     return list(daily_df.loc[is_clear, 'date'])
 
 
@@ -70,7 +88,10 @@ def extract_window_data(df: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp
     return df[(df['timestamp'].dt.date >= start.date()) & (df['timestamp'].dt.date <= end.date())]
 
 
-def optimize_kappa_c(df: pd.DataFrame) -> float:
+def optimize_kappa_c( df: pd.DataFrame,
+    pm_col: str = 'Pm_kW',
+    pcs_col: str = 'Pcs_kW'
+) -> float:
     """
     Optimize system correction factor κc using MAPE (Mean Absolute Percentage Error) minimization between
     modeled and measured power outputs.
@@ -85,7 +106,7 @@ def optimize_kappa_c(df: pd.DataFrame) -> float:
     Implements part of Formula 6: optimize κc when T <= 25°C.
     The objective function computes MAPE between κc·Pcs and Pm.
     """
-    pcs, pm = df['Pcs'].values, df['Pm'].values
+    pcs, pm = df[pcs_col].values, df[pm_col].values
 
     def objective(kc):
         return np.mean(np.abs((kc * pcs - pm) / pm)) * 100
@@ -93,7 +114,13 @@ def optimize_kappa_c(df: pd.DataFrame) -> float:
     return minimize_scalar(objective, bounds=(0.5, 1.0), method='bounded').x
 
 
-def optimize_kappa_t(df: pd.DataFrame, kappa_c: float, temp_threshold: float = 25) -> float:
+def optimize_kappa_t(df: pd.DataFrame,
+    kappa_c: float,
+    temp_threshold: float = 25,
+    pm_col: str = 'Pm_kW',
+    pcs_col: str = 'Pcs_kW',
+    temp_col: str = 'temperature_C'
+) -> float:
     """
     Optimize temperature correction factor κt for periods above the given
     temperature threshold, based on minimizing MAPE.
@@ -111,7 +138,9 @@ def optimize_kappa_t(df: pd.DataFrame, kappa_c: float, temp_threshold: float = 2
     Minimizes MAPE where:
     Pccs = κt·κc·Pcs if T > 25°C, else κc·Pcs.
     """
-    pcs, pm, temp = df['Pcs'].values, df['Pm'].values, df['temperature'].values
+    pcs = df[pcs_col].values
+    pm = df[pm_col].values
+    temp = df[temp_col].values
 
     def objective(kt):
         pccs = np.where(temp > temp_threshold, kt * kappa_c * pcs, kappa_c * pcs)  # Implementting Formula 5
@@ -120,7 +149,14 @@ def optimize_kappa_t(df: pd.DataFrame, kappa_c: float, temp_threshold: float = 2
     return minimize_scalar(objective, bounds=(0.7, 1.0), method='bounded').x  # Implementing Formula 6
 
 
-def apply_corrections(df: pd.DataFrame, kappa_c: float, kappa_t: float, temp_threshold: float = 25) -> pd.DataFrame:
+def apply_corrections(
+    df: pd.DataFrame, 
+    kappa_c: float, 
+    kappa_t: float, 
+    temp_threshold: float = 25,
+    pcs_col: str = 'Pcs_kW',
+    temp_col: str = 'temperature_C'
+) -> pd.DataFrame:
     """
     Apply calibrated κc and κt to the clear-sky power values to produce Pccs.
 
@@ -137,13 +173,21 @@ def apply_corrections(df: pd.DataFrame, kappa_c: float, kappa_t: float, temp_thr
     Applies Formula 5 from the paper:
     Pccs = κt·κc·Pcs when T > 25°C, else κc·Pcs.
     """
-    pcs = df['Pcs'].values
-    temp = df['temperature'].values
-    df['Pccs'] = np.where(temp > temp_threshold, kappa_t * kappa_c * pcs, kappa_c * pcs)
+    pcs = df[pcs_col].values
+    temp = df[temp_col].values
+    df['Pccs_kW'] = np.where(temp > temp_threshold, kappa_t * kappa_c * pcs, kappa_c * pcs)
     return df
 
 
-def calibrate_system_efficiency(df: pd.DataFrame, temp_threshold: float = 25, window_hours: int = 72) -> tuple[pd.DataFrame, tuple[float, float]]:
+def calibrate_system_efficiency(
+    df: pd.DataFrame, 
+    temp_threshold: float = 25, 
+    window_hours: int = 72,
+    pm_col: str = 'Pm_kW',
+    pcs_col: str = 'Pcs_kW',
+    cloud_col: str = 'cloudiness_index',
+    temp_col: str = 'temperature_C'
+) -> tuple[pd.DataFrame, tuple[float, float]]:
     
     """
     Calibrate system efficiency correction factors κc and κt.
@@ -163,25 +207,25 @@ def calibrate_system_efficiency(df: pd.DataFrame, temp_threshold: float = 25, wi
     if window_hours % 24 != 0:
         raise ValueError("window_hours must be divisible by 24 to represent full days")
     df = df.copy()
-    daily = compute_daily_energy(df)
+    daily = compute_daily_energy(df, pm_col=pm_col, pcs_col=pcs_col, cloud_col=cloud_col)
     clear_days = detect_clear_sky_days(daily)
     windows = find_consecutive_clear_windows(clear_days, window_size=window_hours // 24)
 
     if not windows:
         print("[INFO] No 3-day clear-sky window found. Using defaults κc = κt = 1.0")
-        return apply_corrections(df, 1.0, 1.0, temp_threshold), (1.0, 1.0)
+        return apply_corrections(df, 1.0, 1.0, temp_threshold, pcs_col=pcs_col, temp_col=temp_col), (1.0, 1.0)
 
     start_date, end_date = windows[0]  # Use the first valid 3-day window
     window_df = extract_window_data(df, start=start_date, end=end_date)
-    avg_temp = window_df['temperature'].mean()
+    avg_temp = window_df[temp_col].mean()
 
     kappa_c, kappa_t = 1.0, 1.0
     if avg_temp > temp_threshold:
-        kappa_t = optimize_kappa_t(window_df, kappa_c, temp_threshold)
+        kappa_t = optimize_kappa_t(window_df, kappa_c, temp_threshold, pm_col=pm_col, pcs_col=pcs_col, temp_col=temp_col)
         print(f"[INFO] Calibrated κt = {kappa_t:.4f} (warm window)")
     else:
-        kappa_c = optimize_kappa_c(window_df)
+        kappa_c = optimize_kappa_c(window_df, pm_col=pm_col, pcs_col=pcs_col)
         print(f"[INFO] Calibrated κc = {kappa_c:.4f} (cool window)")
 
-    df = apply_corrections(df, kappa_c, kappa_t, temp_threshold)
+    df = apply_corrections(df, kappa_c, kappa_t, temp_threshold, pcs_col=pcs_col, temp_col=temp_col)
     return df, (kappa_c, kappa_t)

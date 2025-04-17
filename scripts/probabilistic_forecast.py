@@ -148,7 +148,11 @@ def generate_probabilistic_forecast(
 
 def run_probabilistic_forecast_pipeline(
     df: pd.DataFrame,
-    quantiles: List[float] = [i / 100 for i in range(10, 100, 10)]  
+    forecast_col: str = "Ppf",
+    actual_col: str = "Pm",
+    cloud_col: str = "cloudiness",
+    timestamp_col: str = "timestamp",
+    quantiles: List[float] = [i / 100 for i in range(10, 100, 10)]
 ) -> pd.DataFrame:
     """
     Main pipeline to prepare data, fit error distributions per cloudiness bin,
@@ -161,8 +165,8 @@ def run_probabilistic_forecast_pipeline(
     Returns:
     - DataFrame with added columns for quantile forecasts.
     """
-    df_processed = compute_relative_error(df)
-    lambda_bins, df_processed = categorize_by_cloudiness(df_processed)
+    df_processed = compute_relative_error(df, forecast_col=forecast_col, actual_col=actual_col, cloud_col=cloud_col, timestamp_col=timestamp_col)
+    lambda_bins, df_processed = categorize_by_cloudiness(df_processed, cloud_col=cloud_col)
     fitted_cdfs = {i: fit_best_distribution(data) for i, data in lambda_bins.items()}
-    df_result = generate_probabilistic_forecast(df_processed, fitted_cdfs, quantiles)
+    df_result = generate_probabilistic_forecast(df_processed, fitted_cdfs, quantiles, forecast_col=forecast_col)
     return df_result

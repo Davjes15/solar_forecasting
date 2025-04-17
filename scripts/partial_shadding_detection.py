@@ -129,7 +129,7 @@ def apply_kappa_correction(
     return df
 
 
-def partial_shadding_detection(
+def partial_shading_detection(
         df: pd.DataFrame,
         zenith_col: str = "zenith",
         power_col: str = "Pm",
