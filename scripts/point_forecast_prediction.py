@@ -24,6 +24,16 @@ def prepare_training_data(
         target_col (str): Column name for actual power measurements.
         reference_col (str): Column name for clear-sky corrected power.
 
+    Parameter--------------Value ---------Why?
+    max_depth               5           Controls overfitting, favors general rules
+    min_samples_leaf        10          Smooths splits, improves generalization
+    n_estimators            50          Balances performance with speed
+    max_samples             0.8         Injects diversity into trees
+    bootstrap               True        Required for bagging
+    n_jobs                  -1          Parallel training
+    random_state            42          Reproducibility
+
+
     Returns:
         Tuple containing feature matrix X and target vector y (absolute relative error).
     """
@@ -39,7 +49,9 @@ def train_regression_tree(
     X: pd.DataFrame,
     y: pd.Series,
     base_estimator=None,
-    n_estimators: int = 10,
+    n_estimators: int = 50,
+    max_samples: float = 0.8,
+    n_jobs: int = -1,
     random_state: int = 42
 ) -> BaggingRegressor:
     """
@@ -56,10 +68,16 @@ def train_regression_tree(
         Trained BaggingRegressor model.
     """
     if base_estimator is None:
-        base_estimator = DecisionTreeRegressor()
+        base_estimator = DecisionTreeRegressor(
+            max_depth=5,
+            min_samples_leaf=10,
+            random_state=random_state
+        )
     model = BaggingRegressor(
         estimator=base_estimator,
         n_estimators=n_estimators,
+        max_samples=max_samples,
+        n_jobs=n_jobs,
         random_state=random_state
     )
     model.fit(X, y)
