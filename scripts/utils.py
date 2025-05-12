@@ -1,6 +1,16 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
+from typing import List
+from sklearn.ensemble import BaggingRegressor
+from sklearn.tree import DecisionTreeRegressor
+from point_forecast_prediction import (
+    prepare_training_data,
+    train_regression_tree,
+    forecast_point_generation
+)
+
 
 def plot_seasonal_forecasts(
     df: pd.DataFrame,
@@ -111,3 +121,84 @@ def plot_probabilistic_forecast(
     fig.legend(handles, labels, loc="lower center", ncol=6, bbox_to_anchor=(0.5, -0.12))
     plt.tight_layout(rect=[0, 0.05, 1, 1])
     plt.show()
+
+
+def simulate_realtime_forecast(
+    df: pd.DataFrame,
+    feature_cols: List[str],
+    start_date: str,
+    end_date: str,
+    output_col: str = "Ppf",
+    target_col: str = "Pm",
+    reference_col: str = "Ppccs"
+) -> pd.DataFrame:
+    """
+    Simulates real-time day-ahead training and forecasting using the user's own point forecasting pipeline.
+    
+    Parameters:
+        df: Full DataFrame with hourly resolution and necessary columns.
+        feature_cols: List of weather columns used as features (e.g., ["temperature_wx", "cloudiness", "humidity"])
+        start_date: 'YYYY-MM-DD'
+        end_date: 'YYYY-MM-DD'
+        output_col: column name for predicted power (default: "Ppf")
+        target_col: measured PV output (default: "Pm")
+        reference_col: clear-sky corrected power (default: "Ppccs")
+
+    Returns:
+        DataFrame with datetime index and forecast results.
+    """
+    df = df.copy()
+    all_predictions = []
+
+    for day in tqdm(pd.date_range(start=start_date, end=end_date)):
+        forecast_hours = pd.date_range(day, periods=24, freq="H")
+
+        # Training data: all data before forecast day
+        train_df = df[df.index < day].copy()
+        test_df = df.loc[forecast_hours].copy()
+
+        # Skip if not enough data
+        if len(train_df) < 200 or test_df.empty:
+            continue
+
+        # Prepare training data
+        X_train, y_train = prepare_training_data(
+            train_df,
+            feature_cols=feature_cols,
+            target_col=target_col,
+            reference_col=reference_col
+        )
+
+        if len(X_train) < 100:
+            continue  # too little training data
+
+        # Train model (you can modify hyperparameters here)
+        model = train_regression_tree(
+            X_train, y_train,
+            n_estimators=10,
+            max_samples=0.9,
+            bootstrap=True,
+            n_jobs=None,
+            random_state=42,
+            base_estimator=DecisionTreeRegressor(
+                max_depth=None,
+                min_samples_leaf=1,
+                random_state=42
+            )
+        )
+
+        # Forecast next 24 hours
+        test_df = forecast_point_generation(
+            model,
+            test_df,
+            feature_cols=feature_cols,
+            reference_col=reference_col,
+            output_col=output_col
+        )
+
+        # Clip forecast to physical limits
+        test_df[output_col] = np.clip(test_df[output_col], 0, test_df[reference_col])
+
+        all_predictions.append(test_df[["Pm", reference_col, output_col]])
+
+    return pd.concat(all_predictions)
