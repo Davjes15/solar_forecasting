@@ -5,7 +5,7 @@ from tqdm import tqdm
 from typing import List
 from sklearn.ensemble import BaggingRegressor
 from sklearn.tree import DecisionTreeRegressor
-from point_forecast_prediction import (
+from scripts.point_forecast_prediction import (
     prepare_training_data,
     train_regression_tree,
     forecast_point_generation
@@ -148,10 +148,12 @@ def simulate_realtime_forecast(
         DataFrame with datetime index and forecast results.
     """
     df = df.copy()
+    # Ensure the index is timezone-naive
+    df.index = pd.to_datetime(df.index).tz_localize(None)
     all_predictions = []
 
     for day in tqdm(pd.date_range(start=start_date, end=end_date)):
-        forecast_hours = pd.date_range(day, periods=24, freq="H")
+        forecast_hours = pd.date_range(day, periods=24, freq="h")
 
         # Training data: all data before forecast day
         train_df = df[df.index < day].copy()
@@ -195,10 +197,10 @@ def simulate_realtime_forecast(
             reference_col=reference_col,
             output_col=output_col
         )
-
+        test_df["lambda_hat"] = np.abs((test_df[reference_col] - test_df[output_col]) / test_df[reference_col])
         # Clip forecast to physical limits
         test_df[output_col] = np.clip(test_df[output_col], 0, test_df[reference_col])
-
-        all_predictions.append(test_df[["Pm", reference_col, output_col]])
+    
+        all_predictions.append(test_df[[target_col, reference_col, output_col, "lambda_hat"]])
 
     return pd.concat(all_predictions)
