@@ -1,0 +1,28 @@
+[project]
+name = "solar-forecasting"
+version = "0.1.0"
+description = "Models for solar forecasting"
+authors = [
+    {name = "David Quispe"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests (>=2.32.3,<3.0.0)",
+    "pandas (>=2.2.3,<3.0.0)",
+    "jupyter (>=1.1.1,<2.0.0)",
+    "ipykernel (>=6.29.5,<7.0.0)",
+    "matplotlib (>=3.10.1,<4.0.0)",
+    "scikit-learn (>=1.6.1,<2.0.0)",
+    "pvlib (>=0.12.0,<0.13.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "ace-tools (>=0.0,<0.1)",
+    "ipympl (>=0.9.7,<0.10.0)",
+    "tqdm (>=4.67.1,<5.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+package-mode = false
