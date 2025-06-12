@@ -1,0 +1,29 @@
+weather_download:
+  start_date: "20190101"
+  end_date: "20191231"
+  parameters:
+    - T2M
+    - RH2M
+    - WS2M
+    - WD2M
+    - PS
+    - CLOUD_AMT
+
+data:
+  pv_data_path: "data/pv_data.csv"
+  output_path: "data/forecast_output.csv"
+
+features:
+  input_features:
+    - temperature
+    - cloudiness
+    - humidity
+  target_column: "Pm"
+  reference_column: "Ppccs"
+
+system_efficiency:
+  temperature_threshold: 25
+  window_hours: 72
+
+probabilistic_forecast:
+  quantiles: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
