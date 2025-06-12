@@ -32,7 +32,6 @@ def prepare_training_data(
     mask = df[reference_col] > 0
     df = df.loc[mask].copy()
     df["Lambda"] = ((df[target_col] - df[reference_col]) / df[reference_col]).abs()
-    df["Lambda"] = ((df[target_col] - df[reference_col]) / df[reference_col]).abs()
     # Cliping large deviations because it will cause physically invalid outputs during prediction
     df["Lambda"] = df["Lambda"].clip(0, 1.5) # Relative errors beyond 150% are rare or unhelpful for training
     X = df[feature_cols]
