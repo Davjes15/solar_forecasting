@@ -205,3 +205,32 @@ def simulate_realtime_forecast(
         all_predictions.append(test_df[[target_col, reference_col, output_col, "lambda_hat"]])
 
     return pd.concat(all_predictions)
+
+
+def load_prepare_data(file_path: str, df_w: pd.DataFrame) -> pd.DataFrame:
+    # Load and parse PV data
+    df_pv = pd.read_csv(file_path, skiprows=3, sep=',', parse_dates=["time"])
+    df_pv.rename(columns={"electricity": "pv_output_kw", "time": "timestamp"}, inplace=True)
+    df_pv.drop(columns=["local_time"], inplace=True)
+
+    if df_pv["timestamp"].dt.tz is None:
+        df_pv["timestamp"] = df_pv["timestamp"].dt.tz_localize("UTC")
+    else:
+        df_pv["timestamp"] = df_pv["timestamp"].dt.tz_convert("UTC")
+
+    df_pv.set_index("timestamp", inplace=True)
+
+    # Weather data preparation
+    df_w = df_w.rename(columns={"datetime": "timestamp"})
+    df_w["timestamp"] = pd.to_datetime(df_w["timestamp"])
+
+    if df_w["timestamp"].dt.tz is None:
+        df_w["timestamp"] = df_w["timestamp"].dt.tz_localize("UTC")
+    else:
+        df_w["timestamp"] = df_w["timestamp"].dt.tz_convert("UTC")
+
+   # Merge on timestamp column
+    df_merged = pd.merge(df_pv, df_w, on="timestamp", how="inner", suffixes=("_pv", "_wx"))
+    
+    return df_merged
+
