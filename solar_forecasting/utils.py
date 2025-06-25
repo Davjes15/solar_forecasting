@@ -1,4 +1,5 @@
 import pandas as pd
+import yaml
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -234,3 +235,12 @@ def load_prepare_data(file_path: str, df_w: pd.DataFrame) -> pd.DataFrame:
     
     return df_merged
 
+
+def load_config(path: str):
+    """ Load a YAML configuration file.
+    Args:
+        path (str): Path to the YAML file.
+    Returns:
+        dict: Parsed configuration as a dictionary."""
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
