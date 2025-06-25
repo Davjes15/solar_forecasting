@@ -1,7 +1,7 @@
 import argparse
 import pandas as pd
 import joblib
-import yaml
+from solar_forecasting.utils import load_config
 from solar_forecasting.download_weather_data import fetch_nasa_power_weather
 from solar_forecasting.utils import load_prepare_data
 from solar_forecasting.plant_config import default_plant_config
@@ -14,11 +14,6 @@ def parse_args():
     parser.add_argument("--config", type=str, default="configs/default_config.yaml", help="Path to YAML config file")
     parser.add_argument("--output", type=str, default="data/predictions.csv", help="Where to save predictions")
     return parser.parse_args()
-
-
-def load_config(path):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
 
 
 if __name__ == "__main__":

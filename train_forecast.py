@@ -3,6 +3,7 @@ import os
 import datetime
 import yaml
 import argparse
+from solar_forecasting.utils import load_config
 from solar_forecasting.plant_config import default_plant_config
 from solar_forecasting.utils import load_prepare_data
 from solar_forecasting.download_weather_data import fetch_nasa_power_weather
@@ -26,10 +27,6 @@ def parse_args():
     parser.add_argument("--output-path", type=str, default="data/processed/forecast_output.csv", help="(Optional) Path to save the forecast results")
     parser.add_argument("--model-path", type=str, default="models/point_forecast_model.pkl", help="(Optional) Path to save the trained model")
     return parser.parse_args()
-
-def load_config(path):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
 
 
 if __name__ == "__main__":
