@@ -89,7 +89,7 @@ if __name__ == "__main__":
     os.makedirs("models", exist_ok=True)
 
     # Generate timestamp-based version string
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     model_versioned_path = f"models/forecast_model_{timestamp}.pkl"
 
     # Save the model
